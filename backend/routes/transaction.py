@@ -28,3 +28,12 @@ async def get_transaction(transaction_id: int, db: Session = Depends(get_db)):
         if not transaction:
             raise HTTPException(status_code=404, detail="Transaction not found")
         return transaction
+
+@router.delete("/transactions/{transaction_id}")
+async def delete_transaction(transaction_id: int, db: Session = Depends(get_db)):
+        transaction = db.query(models.Transaction).filter(models.Transaction.id == transaction_id).first()
+        if not transaction:
+            raise HTTPException(status_code=404, detail="Transaction not found")
+        db.delete(transaction)
+        db.commit()
+        return {"message": "Transaction deleted successfully"}

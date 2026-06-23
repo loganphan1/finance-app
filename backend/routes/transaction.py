@@ -1,22 +1,23 @@
-from fastapi import FastAPI
-from routes.schema import Transaction
-app = FastAPI()
+from fastapi import Depends, APIRouter
+from sqlalchemy.orm import Session
+from backend.database import get_db
+from backend.schema import TransactionCreate, TransactionResponse
+from backend import models
+router = APIRouter()
 
-@app.post("/transactions", response_model=list[Transaction])
-async def create_transaction(transaction: Transaction):
-    return [
-        Transaction(
-            id=1,
-            amount="25.50",
-            merchant="Starbucks",
-            category="Food & Drink",
-            date="2024-01-15"
-        ),
-        Transaction(
-            id=2,
-            amount="100.00",
-            merchant="Amazon",
-            category="Shopping",
-            date="2024-01-10"
+@router.post("/transactions", response_model=TransactionResponse)
+async def create_transaction(transaction: TransactionCreate, db: Session = Depends(get_db)):
+        new_transaction = models.Transaction(
+            amount=transaction.amount,
+            merchant=transaction.merchant,
+            category=transaction.category,
+            date=transaction.date
         )
-    ]
+        db.add(new_transaction)
+        db.commit()
+        db.refresh(new_transaction)
+        return new_transaction
+
+@router.get("/transactions", response_model=list[TransactionResponse])
+async def get_transactions(db: Session = Depends(get_db)):
+        return db.query(models.Transaction).all()

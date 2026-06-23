@@ -1,4 +1,4 @@
-from fastapi import Depends, APIRouter
+from fastapi import Depends, APIRouter, HTTPException
 from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.schema import TransactionCreate, TransactionResponse
@@ -21,3 +21,10 @@ async def create_transaction(transaction: TransactionCreate, db: Session = Depen
 @router.get("/transactions", response_model=list[TransactionResponse])
 async def get_transactions(db: Session = Depends(get_db)):
         return db.query(models.Transaction).all()
+
+@router.get("/transactions/{transaction_id}", response_model=TransactionResponse)
+async def get_transaction(transaction_id: int, db: Session = Depends(get_db)):
+        transaction = db.query(models.Transaction).filter(models.Transaction.id == transaction_id).first()
+        if not transaction:
+            raise HTTPException(status_code=404, detail="Transaction not found")
+        return transaction

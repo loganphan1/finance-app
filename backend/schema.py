@@ -37,3 +37,35 @@ class TransactionResponse(BaseModel):
             }
         }
     )
+
+class UserCreate(BaseModel):
+    username: str
+    email: str
+    password: str
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "username": "john_doe",
+                "email": "john.doe@example.com",
+                "password": "securepassword"
+            }
+        }
+    )
+
+class UserResponse(BaseModel):
+    id: int
+    username: str
+    email: str
+    
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "id": 1,
+                "username": "john_doe",
+                "email": "john.doe@example.com",
+                "password": "securepassword"
+            }
+        }
+    )

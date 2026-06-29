@@ -69,3 +69,16 @@ class UserResponse(BaseModel):
             }
         }
     )
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "access_token": "your_access_token",
+                "token_type": "bearer"
+            }
+        }
+    )

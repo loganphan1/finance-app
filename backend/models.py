@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Float,Date
+from sqlalchemy import Column, Integer, String, Float,Date, ForeignKey
+from sqlalchemy.orm import relationship
 from backend.database import Base
 
 class Transaction(Base):
@@ -9,6 +10,8 @@ class Transaction(Base):
     merchant = Column(String, nullable=False)
     category = Column(String, nullable=False)
     date = Column(Date, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable = False)
+    user = relationship("User", back_populates="transactions")
 
 class User(Base):
     __tablename__ = "users"
@@ -17,10 +20,4 @@ class User(Base):
     username = Column(String, unique=True, index=True, nullable=False)
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
-
-class TokenResponse(Base):
-    __tablename__ = "tokens"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    access_token = Column(String, nullable=False)
-    token_type = Column(String, nullable=False)
+    transactions = relationship("Transaction", back_populates="user")

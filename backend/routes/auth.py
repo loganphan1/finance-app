@@ -1,38 +1,35 @@
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy.orm import Session
-from passlib.context import CryptContext
-from backend import models
-from backend.schema import UserCreate, UserResponse, TokenResponse
-from backend.database import get_db
-from jose import JWTError, jwt
-from datetime import datetime, timedelta
-import os
-from dotenv import load_dotenv
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-router = APIRouter()
-token_oauth2 = OAuth2PasswordBearer(tokenUrl="auth/login")
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+from sqlalchemy.orm import Session
 
-load_dotenv()  # Load environment variables from .env file
-secret_key = os.getenv("secret_key")
-algorithm = "HS256"
+from backend import models
+from backend.config import ALGORITHM, SECRET_KEY
+from backend.database import get_db
+from backend.schema import TokenResponse, UserCreate, UserLogin, UserResponse
+
+router = APIRouter()
+bearer_scheme = HTTPBearer(auto_error=False)
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=15)
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, secret_key, algorithm=algorithm)
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-@router.post("/auth/register", response_model = UserResponse)
-
-async def register_user(user:UserCreate, db: Session = Depends(get_db)):
+@router.post("/auth/register", response_model=UserResponse)
+async def register_user(user: UserCreate, db: Session = Depends(get_db)):
     # Hash the password
     hashed_password = pwd_context.hash(user.password)
     new_user = models.User(
@@ -45,23 +42,35 @@ async def register_user(user:UserCreate, db: Session = Depends(get_db)):
     db.refresh(new_user)
     return new_user
 
-@router.post("/auth/login", response_model = TokenResponse)
 
-async def login_user(user: UserCreate, db: Session = Depends(get_db)):
+@router.post("/auth/login", response_model=TokenResponse)
+async def login_user(user: UserLogin, db: Session = Depends(get_db)):
     db_user = db.query(models.User).filter(models.User.email == user.email).first()
     if not db_user or not pwd_context.verify(user.password, db_user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     token = create_access_token(data={"sub": db_user.email})
     return {"access_token": token, "token_type": "bearer"}
 
-async def get_current_user(token: str = Depends(token_oauth2),db: Session = Depends(get_db)):
+
+async def get_current_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
+    db: Session = Depends(get_db),
+):
     credentials_exception = HTTPException(
         status_code=401,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+    if credentials is None:
+        raise credentials_exception
+
     try:
-        decoded_token = jwt.decode(token,secret_key, algorithms=[algorithm])
+        decoded_token = jwt.decode(
+            credentials.credentials,
+            SECRET_KEY,
+            algorithms=[ALGORITHM],
+        )
         email: str = decoded_token.get("sub")
         if email is None:
             raise credentials_exception
